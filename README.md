@@ -14,6 +14,10 @@ enforcement and end-to-end traceability of every application's state.
 > React + TypeScript frontend lives in [`frontend/`](frontend). Both are containerized
 > and orchestrated together with `docker compose`.
 
+> **Live deployment:** **https://54-197-72-170.sslip.io** — deployed on AWS EC2 with
+> Docker Compose, served over HTTPS by nginx with a trusted Let's Encrypt certificate
+> (auto-renewing). See [Deployment](#deployment).
+
 ---
 
 ## Table of contents
@@ -26,11 +30,12 @@ enforcement and end-to-end traceability of every application's state.
 6. [API endpoints](#api-endpoints)
 7. [Installation](#installation)
 8. [Running the application](#running-the-application)
-9. [Frontend (React SPA)](#frontend-react-spa)
-10. [Environment variables](#environment-variables)
-11. [Test credentials](#test-credentials)
-12. [Running the tests](#running-the-tests)
-13. [Functional evidence](#functional-evidence)
+9. [Deployment](#deployment)
+10. [Frontend (React SPA)](#frontend-react-spa)
+11. [Environment variables](#environment-variables)
+12. [Test credentials](#test-credentials)
+13. [Running the tests](#running-the-tests)
+14. [Functional evidence](#functional-evidence)
 
 ---
 
@@ -249,6 +254,51 @@ Override the datasource with environment variables (see below) if you are not us
 the default database.
 
 See [Frontend (React SPA)](#frontend-react-spa) for running the frontend in dev mode.
+
+---
+
+## Deployment
+
+The application is deployed on an **AWS EC2** instance (Ubuntu, Docker + Docker
+Compose) and exposed over **HTTPS** at **https://54-197-72-170.sslip.io**.
+
+- The hostname uses [sslip.io](https://sslip.io) (wildcard DNS that maps
+  `54-197-72-170.sslip.io` → the instance's public IP `54.197.72.170`), which lets
+  **Let's Encrypt** issue a trusted certificate without owning a domain.
+- nginx (the frontend container) terminates TLS on **443**, redirects **80 → 443**,
+  serves the SPA and reverse-proxies `/api` to the backend container.
+- The certificate auto-renews via certbot using the **webroot** method
+  (`/var/www/certbot`, served by nginx — no downtime on renewal).
+
+### Reproduce the deployment
+
+```bash
+# On the server (Docker + docker compose v2 installed):
+git clone https://github.com/niccko1082-ux/TalentBoard.git && cd TalentBoard
+printf 'APP_HOST_PORT=8095\nFRONTEND_HOST_PORT=80\n' > .env
+
+# 1) Start the stack (HTTP) so the build is ready
+docker compose up -d --build
+
+# 2) Issue the certificate (frontend briefly stopped to free port 80)
+sudo apt-get install -y certbot
+docker compose stop frontend
+sudo certbot certonly --standalone -d <ip-with-dashes>.sslip.io \
+  --non-interactive --agree-tos --register-unsafely-without-email
+sudo mkdir -p /var/www/certbot
+
+# 3) Bring the frontend up with the TLS overlay
+docker compose -f compose.yaml -f compose.tls.yaml up -d
+```
+
+> **AWS Security Group** must allow inbound **80** (ACME challenge + redirect),
+> **443** (HTTPS) and optionally **8095** (direct API / Swagger).
+
+| Service          | URL                                                  |
+|------------------|------------------------------------------------------|
+| App (HTTPS)      | `https://54-197-72-170.sslip.io`                     |
+| API / Swagger    | `https://54-197-72-170.sslip.io/swagger-ui/index.html` |
+| API (direct)     | `http://54.197.72.170:8095` (if 8095 is open)        |
 
 ---
 
