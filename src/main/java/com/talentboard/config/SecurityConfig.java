@@ -29,7 +29,7 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
 
-    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:4173,http://localhost:8090,https://54-197-72-170.sslip.io}")
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:4173,http://localhost:8090}")
     private List<String> allowedOrigins;
 
     @Bean

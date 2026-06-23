@@ -14,9 +14,8 @@ enforcement and end-to-end traceability of every application's state.
 > React + TypeScript frontend lives in [`frontend/`](frontend). Both are containerized
 > and orchestrated together with `docker compose`.
 
-> **Live deployment:** **https://54-197-72-170.sslip.io** — deployed on AWS EC2 with
-> Docker Compose, served over HTTPS by nginx with a trusted Let's Encrypt certificate
-> (auto-renewing). See [Deployment](#deployment).
+> **Live deployment:** deployed on AWS EC2 with Docker Compose (frontend served by
+> nginx, backend container, remote PostgreSQL). See [Deployment](#deployment).
 
 ---
 
@@ -260,15 +259,9 @@ See [Frontend (React SPA)](#frontend-react-spa) for running the frontend in dev 
 ## Deployment
 
 The application is deployed on an **AWS EC2** instance (Ubuntu, Docker + Docker
-Compose) and exposed over **HTTPS** at **https://54-197-72-170.sslip.io**.
-
-- The hostname uses [sslip.io](https://sslip.io) (wildcard DNS that maps
-  `54-197-72-170.sslip.io` → the instance's public IP `54.197.72.170`), which lets
-  **Let's Encrypt** issue a trusted certificate without owning a domain.
-- nginx (the frontend container) terminates TLS on **443**, redirects **80 → 443**,
-  serves the SPA and reverse-proxies `/api` to the backend container.
-- The certificate auto-renews via certbot using the **webroot** method
-  (`/var/www/certbot`, served by nginx — no downtime on renewal).
+Compose v2). nginx (the frontend container) serves the SPA on port 80 and
+reverse-proxies `/api` to the backend container; the backend connects to the
+PostgreSQL database.
 
 ### Reproduce the deployment
 
@@ -276,29 +269,16 @@ Compose) and exposed over **HTTPS** at **https://54-197-72-170.sslip.io**.
 # On the server (Docker + docker compose v2 installed):
 git clone https://github.com/niccko1082-ux/TalentBoard.git && cd TalentBoard
 printf 'APP_HOST_PORT=8095\nFRONTEND_HOST_PORT=80\n' > .env
-
-# 1) Start the stack (HTTP) so the build is ready
 docker compose up -d --build
-
-# 2) Issue the certificate (frontend briefly stopped to free port 80)
-sudo apt-get install -y certbot
-docker compose stop frontend
-sudo certbot certonly --standalone -d <ip-with-dashes>.sslip.io \
-  --non-interactive --agree-tos --register-unsafely-without-email
-sudo mkdir -p /var/www/certbot
-
-# 3) Bring the frontend up with the TLS overlay
-docker compose -f compose.yaml -f compose.tls.yaml up -d
 ```
 
-> **AWS Security Group** must allow inbound **80** (ACME challenge + redirect),
-> **443** (HTTPS) and optionally **8095** (direct API / Swagger).
+> **AWS Security Group** must allow inbound **80** (frontend) and optionally
+> **8095** (direct API / Swagger).
 
-| Service          | URL                                                  |
-|------------------|------------------------------------------------------|
-| App (HTTPS)      | `https://54-197-72-170.sslip.io`                     |
-| API / Swagger    | `https://54-197-72-170.sslip.io/swagger-ui/index.html` |
-| API (direct)     | `http://54.197.72.170:8095` (if 8095 is open)        |
+| Service        | URL                                            |
+|----------------|------------------------------------------------|
+| App            | `http://<server-ip>`                           |
+| API / Swagger  | `http://<server-ip>:8095/swagger-ui/index.html`|
 
 ---
 
