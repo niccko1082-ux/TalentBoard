@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+    environment:
+      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://54.197.72.170:5432/crudzaso_db'
+      - 'SPRING_DATASOURCE_USERNAME=crudzaso'
+      - 'SPRING_DATASOURCE_PASSWORD=0000'
+      - 'SPRING_DOCKER_COMPOSE_ENABLED=false'
+      - 'APP_SEED_ENABLED=true'
+    ports:
+      - '${APP_HOST_PORT:-8080}:8080'
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - app
+    ports:
+      - '${FRONTEND_HOST_PORT:-3000}:80'
